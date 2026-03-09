@@ -1,0 +1,17 @@
+/* Playfair Display - Display serif for brand */
+@font-face {
+  font-family: "Playfair Display";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/assets/fonts/PlayfairDisplay-Variable.woff2") format("woff2");
+}
+
+/* General Sans - Clean body sans-serif */
+@font-face {
+  font-family: "General Sans";
+  font-style: normal;
+  font-weight: 200 700;
+  font-display: swap;
+  src: url("/assets/fonts/GeneralSans-Variable.woff2") format("woff2");
+}
