@@ -34,7 +34,7 @@ interface PendingSalon {
   status: string;
 }
 
-const ADMIN_PIN = "1234";
+const ADMIN_PIN = "Ramji@123";
 const SESSION_KEY = "litinybarber_admin_auth";
 
 export default function AdminPage({ onNavigate }: AdminPageProps) {
@@ -57,7 +57,7 @@ export default function AdminPage({ onNavigate }: AdminPageProps) {
     } else {
       setPinError(true);
       setPin("");
-      toast.error("Incorrect PIN. Please try again.");
+      toast.error("Incorrect password. Please try again.");
     }
   };
 
@@ -134,7 +134,7 @@ export default function AdminPage({ onNavigate }: AdminPageProps) {
     });
   };
 
-  // ── PIN Entry Screen ────────────────────────────────────────────
+  // ── Password Entry Screen ────────────────────────────────────────────
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-background flex flex-col page-transition">
@@ -169,7 +169,7 @@ export default function AdminPage({ onNavigate }: AdminPageProps) {
                 Admin <span className="text-gradient-gold">Access</span>
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Enter your admin PIN to continue
+                Enter your admin password to continue
               </p>
             </div>
 
@@ -181,7 +181,7 @@ export default function AdminPage({ onNavigate }: AdminPageProps) {
                 <div>
                   <h3 className="font-semibold">Secure Login</h3>
                   <p className="text-xs text-muted-foreground">
-                    Admin PIN required
+                    Password required
                   </p>
                 </div>
               </div>
@@ -189,25 +189,24 @@ export default function AdminPage({ onNavigate }: AdminPageProps) {
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="admin-pin" className="text-sm mb-2 block">
-                    Admin PIN
+                    Admin Password
                   </Label>
                   <Input
                     id="admin-pin"
                     type="password"
-                    placeholder="Enter PIN"
+                    placeholder="Enter Password"
                     value={pin}
                     onChange={(e) => {
-                      setPin(e.target.value.replace(/\D/g, "").slice(0, 4));
+                      setPin(e.target.value);
                       setPinError(false);
                     }}
-                    className={`h-14 bg-background text-base text-center tracking-[0.5em] font-bold text-lg ${
+                    className={`h-14 bg-background text-base font-bold text-lg ${
                       pinError
                         ? "border-destructive focus:border-destructive"
                         : "border-border focus:border-gold/50"
                     }`}
-                    maxLength={4}
                     onKeyDown={(e) =>
-                      e.key === "Enter" && pin.length === 4 && handlePinSubmit()
+                      e.key === "Enter" && pin.length > 0 && handlePinSubmit()
                     }
                     data-ocid="admin.input"
                   />
@@ -216,23 +215,19 @@ export default function AdminPage({ onNavigate }: AdminPageProps) {
                       className="text-xs text-destructive mt-1.5"
                       data-ocid="admin.error_state"
                     >
-                      Incorrect PIN. Please try again.
+                      Incorrect password. Please try again.
                     </p>
                   )}
                 </div>
                 <Button
                   className="w-full h-14 gradient-gold text-primary-foreground font-bold text-base border-0"
-                  disabled={pin.length !== 4}
+                  disabled={pin.length === 0}
                   onClick={handlePinSubmit}
                   data-ocid="admin.submit_button"
                 >
                   Access Admin Panel
                 </Button>
               </div>
-
-              <p className="text-xs text-center text-muted-foreground/60 mt-4">
-                Demo PIN: 1234
-              </p>
             </div>
           </div>
         </main>

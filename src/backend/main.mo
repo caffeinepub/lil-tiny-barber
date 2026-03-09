@@ -11,9 +11,9 @@ import Order "mo:core/Order";
 import Principal "mo:core/Principal";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
-import Migration "migration";
 
-(with migration = Migration.run)
+
+
 actor {
   // Include authorization with role-based access control
   let accessControlState = AccessControl.initState();
@@ -107,28 +107,60 @@ actor {
     slots.toArray();
   };
 
+  // Returns the next 10-minute slot after the given time slot, or null if out of range
+  func nextTimeSlot(slot : Text) : ?Text {
+    let parts = slot.split(#text(":")).toArray();
+    if (parts.size() != 2) return null;
+    switch (Nat.fromText(parts[0]), Nat.fromText(parts[1])) {
+      case (?h, ?m) {
+        let totalMin = h * 60 + m + 10;
+        // Last slot is 18:50, so next would be 19:00 which is out of range
+        if (totalMin > 18 * 60 + 50) return null;
+        let nh = totalMin / 60;
+        let nm = totalMin % 60;
+        let hourText = if (nh >= 10) { nh.toText() } else { "0" # nh.toText() };
+        let minText = if (nm == 0) { "00" } else if (nm < 10) { "0" # nm.toText() } else { nm.toText() };
+        ?(hourText # ":" # minText);
+      };
+      case _ { null };
+    };
+  };
+
   func isTimeSlotAvailable(salonId : Nat, date : Text, timeSlot : Text, service : Text) : Bool {
+    let slotWithDate = date # " " # timeSlot;
     for (booking in bookings.values()) {
       if (
-        booking.salonId == salonId and booking.timeSlot.startsWith(#text(date)) and (booking.status == #pending or booking.status == #completed)
+        booking.salonId == salonId
+        and (booking.status == #pending or booking.status == #completed)
       ) {
-        if (service == "Hair Cut + Beard") {
-          let timeParts = timeSlot.split(#text(" ")).toArray();
-          if (timeParts.size() == 2) {
-            switch (Nat.fromText(timeParts[1])) {
-              case (?slotIndex) {
-                if (
-                  booking.timeSlot == timeSlot
-                  or (slotIndex + 1 < 60 and booking.timeSlot == (slotIndex + 1).toText())
-                ) {
-                  return false;
-                };
-              };
-              case (null) { () };
-            };
-          };
-        } else if (booking.timeSlot == timeSlot) {
+        // Check if this exact slot is already booked
+        if (booking.timeSlot == slotWithDate) {
           return false;
+        };
+        // For Hair+Beard (2 slots), also check if the next slot is already taken
+        if (service == "Hair Cut + Beard") {
+          switch (nextTimeSlot(timeSlot)) {
+            case (?next) {
+              if (booking.timeSlot == (date # " " # next)) {
+                return false;
+              };
+            };
+            case (null) {};
+          };
+        };
+        // If an existing Hair+Beard booking starts at the PREVIOUS slot,
+        // it also occupies the current slot
+        if (booking.service == "Hair Cut + Beard" and booking.timeSlot.startsWith(#text(date))) {
+          // Extract the time part from the stored booking slot
+          let storedTime = booking.timeSlot.trimStart(#text(date # " "));
+          switch (nextTimeSlot(storedTime)) {
+            case (?nextOfStored) {
+              if (nextOfStored == timeSlot) {
+                return false;
+              };
+            };
+            case (null) {};
+          };
         };
       };
     };
@@ -278,15 +310,36 @@ actor {
     let availableSlots = List.empty<Text>();
 
     for (slot in allSlots.values()) {
+      let slotWithDate = date # " " # slot;
+      // Check if this slot is directly booked
       let isBooked = bookings.values().toArray().any(
         func(booking) {
           booking.salonId == salonId
-          and booking.timeSlot.startsWith(#text(date))
           and (booking.status == #pending or booking.status == #completed)
-          and booking.timeSlot == slot
+          and booking.timeSlot == slotWithDate
         }
       );
-      if (not isBooked) {
+      // Check if a Hair+Beard booking occupies this slot as the 2nd slot
+      let isBlockedByHairBeard = bookings.values().toArray().any(
+        func(booking) {
+          if (
+            booking.salonId == salonId
+            and (booking.status == #pending or booking.status == #completed)
+            and booking.service == "Hair Cut + Beard"
+            and booking.timeSlot.startsWith(#text(date))
+          ) {
+            // Extract the time portion and check if its next slot equals current slot
+            let storedTime = booking.timeSlot.trimStart(#text(date # " "));
+            switch (nextTimeSlot(storedTime)) {
+              case (?next) { next == slot };
+              case (null) { false };
+            };
+          } else {
+            false;
+          };
+        }
+      );
+      if (not isBooked and not isBlockedByHairBeard) {
         availableSlots.add(slot);
       };
     };
@@ -302,7 +355,6 @@ actor {
     timeSlot : Text,
     date : Text,
   ) : async BookingResponse {
-    let slots = List.empty<Text>();
 
     if (not isTimeSlotAvailable(salonId, date, timeSlot, service)) {
       return {
